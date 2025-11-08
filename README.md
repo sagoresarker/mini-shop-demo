@@ -136,12 +136,6 @@ Each service uses environment variables for configuration. See `docker-compose.y
 ./test-system.sh
 ```
 
-### Manual Testing
-See [QUICK_TEST.md](./QUICK_TEST.md) for detailed curl commands.
-
-### Complete Documentation
-See [SYSTEM_DOCUMENTATION.md](./SYSTEM_DOCUMENTATION.md) for comprehensive system documentation.
-
 ## Features Implemented
 
 ✅ **5 Microservices** with independent databases
@@ -162,10 +156,4 @@ See [SYSTEM_DOCUMENTATION.md](./SYSTEM_DOCUMENTATION.md) for comprehensive syste
 ✅ **Docker and Docker Compose** setup
 ✅ **Health check** endpoints for all services
 ✅ **Complete observability** stack
-
-## Documentation
-
-- **[SYSTEM_DOCUMENTATION.md](./SYSTEM_DOCUMENTATION.md)** - Complete system documentation with architecture, service details, and troubleshooting
-- **[QUICK_TEST.md](./QUICK_TEST.md)** - Quick reference for testing with curl commands
-- **[test-system.sh](./test-system.sh)** - Automated end-to-end test script
 
