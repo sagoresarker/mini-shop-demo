@@ -136,24 +136,4 @@ Each service uses environment variables for configuration. See `docker-compose.y
 ./test-system.sh
 ```
 
-## Features Implemented
-
-**5 Microservices** with independent databases
-**REST APIs** with Gin framework
-**gRPC** for inter-service communication
-**Kafka** event streaming for asynchronous messaging
-**Saga Pattern** for distributed transaction management
-**PostgreSQL** persistence (one database per service)
-**Redis** caching for product service
-**JWT authentication** with bcrypt password hashing
-**Circuit Breaker** pattern for resilience
-**Retry Logic** in notification service
-**OpenTelemetry** tracing to Jaeger
-**Prometheus** metrics collection
-**Grafana** dashboards for visualization
-**Loki + Promtail** for log aggregation
-**Structured logging** with Zap
-**Docker and Docker Compose** setup
-**Health check** endpoints for all services
-**Complete observability** stack
 
