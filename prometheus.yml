@@ -1,0 +1,34 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: "user-service"
+    static_configs:
+      - targets: ["user-service:8080"]
+        labels:
+          service: "user-service"
+
+  - job_name: "product-service"
+    static_configs:
+      - targets: ["product-service:8081"]
+        labels:
+          service: "product-service"
+
+  - job_name: "order-service"
+    static_configs:
+      - targets: ["order-service:8082"]
+        labels:
+          service: "order-service"
+
+  - job_name: "payment-service"
+    static_configs:
+      - targets: ["payment-service:8083"]
+        labels:
+          service: "payment-service"
+
+  - job_name: "notification-service"
+    static_configs:
+      - targets: ["notification-service:8084"]
+        labels:
+          service: "notification-service"

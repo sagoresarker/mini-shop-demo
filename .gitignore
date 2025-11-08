@@ -1,0 +1,13 @@
+draft/
+order-service/order-service
+product-service/product-service
+user-service/user-service
+notification-service/notification-service
+payment-service/payment-service
+prometheus-data/
+grafana-data/
+loki-data/
+prometheus-data/
+grafana-data/
+loki-data/
+prometheus-data/
