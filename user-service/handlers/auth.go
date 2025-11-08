@@ -34,6 +34,16 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		return
 	}
 
+	// Use username if provided, otherwise use name
+	name := req.Name
+	if name == "" && req.Username != "" {
+		name = req.Username
+	}
+	if name == "" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Name or username is required"})
+		return
+	}
+
 	// Check if user already exists
 	var existingID int
 	err := h.db.QueryRow("SELECT id FROM users WHERE email = $1", req.Email).Scan(&existingID)
@@ -58,7 +68,7 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	var user models.User
 	err = h.db.QueryRow(
 		"INSERT INTO users (name, email, password_hash) VALUES ($1, $2, $3) RETURNING id, name, email, created_at",
-		req.Name, req.Email, string(hashedPassword),
+		name, req.Email, string(hashedPassword),
 	).Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt)
 	if err != nil {
 		h.logger.Error("Failed to create user", zap.Error(err))
