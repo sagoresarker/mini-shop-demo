@@ -7,7 +7,7 @@ on:
     branches: [main, develop]
 
 env:
-  REGISTRY: dockerhub.com
+  REGISTRY: docker.io
   IMAGE_PREFIX: cuet/devops-workshop
 
 jobs:
