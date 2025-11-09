@@ -37,13 +37,12 @@ jobs:
         working-directory: ./${{ matrix.service }}
         run: go mod download
 
-      - name: Install GolangCI-Lint
+      - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v7
         with:
-          version: v2.6.1
-          install-mode: binary
+          version: v1.62.2
           working-directory: ./${{ matrix.service }}
-          args: --timeout=5m
+          args: --config=../.golangci.yml --timeout=5m
 
   # Run unit tests for all services
   test:
