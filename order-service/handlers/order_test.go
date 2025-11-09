@@ -18,10 +18,10 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// Mock ProductClient for testing
+// Mock ProductClient for testing.
 type mockProductClient struct {
 	checkAvailabilityFunc func(ctx context.Context, productID, quantity int32) (bool, int32, error)
-	getProductFunc        func(ctx context.Context, productID int32) (interface{}, error)
+	getProductFunc        func(ctx context.Context, productID int32) (any, error)
 }
 
 func (m *mockProductClient) CheckAvailability(ctx context.Context, productID, quantity int32) (bool, int32, error) {
@@ -31,7 +31,7 @@ func (m *mockProductClient) CheckAvailability(ctx context.Context, productID, qu
 	return true, 100, nil
 }
 
-func (m *mockProductClient) GetProduct(ctx context.Context, productID int32) (interface{}, error) {
+func (m *mockProductClient) GetProduct(ctx context.Context, productID int32) (any, error) {
 	if m.getProductFunc != nil {
 		return m.getProductFunc(ctx, productID)
 	}
@@ -44,7 +44,7 @@ func (m *mockProductClient) GetProduct(ctx context.Context, productID int32) (in
 	}, nil
 }
 
-// Mock Kafka Producer for testing
+// Mock Kafka Producer for testing.
 type mockProducer struct{}
 
 func (m *mockProducer) SendMessage(msg *sarama.ProducerMessage) (partition int32, offset int64, err error) {
@@ -60,7 +60,7 @@ func (m *mockProducer) Close() error {
 }
 
 // Note: setupOrderTest is simplified - CreateOrder tests require refactoring
-// the handler to use interfaces for ProductClient and Kafka Producer
+// the handler to use interfaces for ProductClient and Kafka Producer.
 func setupOrderTest(t *testing.T) (*OrderHandler, sqlmock.Sqlmock, *gin.Engine) {
 	db, mock, err := sqlmock.New()
 	if err != nil {
@@ -102,7 +102,7 @@ func TestOrderHandler_GetOrder_Success(t *testing.T) {
 		WithArgs(1).
 		WillReturnRows(rows)
 
-	req := httptest.NewRequest("GET", "/orders/1", nil)
+	req := httptest.NewRequest(http.MethodGet, "/orders/1", nil)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
@@ -125,7 +125,7 @@ func TestOrderHandler_GetOrder_NotFound(t *testing.T) {
 		WithArgs(999).
 		WillReturnError(sql.ErrNoRows)
 
-	req := httptest.NewRequest("GET", "/orders/999", nil)
+	req := httptest.NewRequest(http.MethodGet, "/orders/999", nil)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)

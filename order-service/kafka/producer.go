@@ -25,7 +25,7 @@ func InitProducer(logger *zap.Logger) (sarama.SyncProducer, error) {
 	return producer, nil
 }
 
-func PublishOrderEvent(producer sarama.SyncProducer, topic string, event interface{}, logger *zap.Logger) error {
+func PublishOrderEvent(producer sarama.SyncProducer, topic string, event any, logger *zap.Logger) error {
 	eventJSON, err := json.Marshal(event)
 	if err != nil {
 		return fmt.Errorf("failed to marshal event: %w", err)

@@ -17,13 +17,19 @@ import (
 
 type OrderService struct {
 	order.UnimplementedOrderServiceServer
+
 	db            *sql.DB
 	producer      sarama.SyncProducer
 	productClient *grpc.ProductClient
 	logger        *zap.Logger
 }
 
-func NewOrderService(db *sql.DB, producer sarama.SyncProducer, productClient *grpc.ProductClient, logger *zap.Logger) *OrderService {
+func NewOrderService(
+	db *sql.DB,
+	producer sarama.SyncProducer,
+	productClient *grpc.ProductClient,
+	logger *zap.Logger,
+) *OrderService {
 	return &OrderService{
 		db:            db,
 		producer:      producer,
@@ -32,18 +38,21 @@ func NewOrderService(db *sql.DB, producer sarama.SyncProducer, productClient *gr
 	}
 }
 
-func (s *OrderService) CreateOrder(ctx context.Context, req *order.CreateOrderRequest) (*order.CreateOrderResponse, error) {
+func (s *OrderService) CreateOrder(
+	ctx context.Context,
+	req *order.CreateOrderRequest,
+) (*order.CreateOrderResponse, error) {
 	ctx, span := otel.Tracer("order-service").Start(ctx, "CreateOrder_gRPC")
 	defer span.End()
 
 	span.SetAttributes(
-		attribute.Int("user_id", int(req.UserId)),
-		attribute.Int("product_id", int(req.ProductId)),
-		attribute.Int("quantity", int(req.Quantity)),
+		attribute.Int("user_id", int(req.GetUserId())),
+		attribute.Int("product_id", int(req.GetProductId())),
+		attribute.Int("quantity", int(req.GetQuantity())),
 	)
 
 	// Check product availability
-	available, stock, err := s.productClient.CheckAvailability(ctx, req.ProductId, req.Quantity)
+	available, stock, err := s.productClient.CheckAvailability(ctx, req.GetProductId(), req.GetQuantity())
 	if err != nil {
 		span.RecordError(err)
 		return nil, err
@@ -61,19 +70,24 @@ func (s *OrderService) CreateOrder(ctx context.Context, req *order.CreateOrderRe
 	}
 
 	// Get product details
-	productResp, err := s.productClient.GetProduct(ctx, req.ProductId)
+	productResp, err := s.productClient.GetProduct(ctx, req.GetProductId())
 	if err != nil {
 		span.RecordError(err)
 		return nil, err
 	}
 
-	totalPrice := float64(req.Quantity) * float64(productResp.Price)
+	totalPrice := float64(req.GetQuantity()) * float64(productResp.GetPrice())
 
 	// Create order
 	var orderModel models.Order
-	err = s.db.QueryRowContext(ctx,
+	err = s.db.QueryRowContext(
+		ctx,
 		"INSERT INTO orders (user_id, product_id, quantity, status, total_price) VALUES ($1, $2, $3, $4, $5) RETURNING id, user_id, product_id, quantity, status, total_price, created_at, updated_at",
-		req.UserId, req.ProductId, req.Quantity, models.OrderStatusPending, totalPrice,
+		req.GetUserId(),
+		req.GetProductId(),
+		req.GetQuantity(),
+		models.OrderStatusPending,
+		totalPrice,
 	).Scan(&orderModel.ID, &orderModel.UserID, &orderModel.ProductID, &orderModel.Quantity, &orderModel.Status, &orderModel.TotalPrice, &orderModel.CreatedAt, &orderModel.UpdatedAt)
 
 	if err != nil {
@@ -110,12 +124,12 @@ func (s *OrderService) GetOrder(ctx context.Context, req *order.GetOrderRequest)
 	ctx, span := otel.Tracer("order-service").Start(ctx, "GetOrder_gRPC")
 	defer span.End()
 
-	span.SetAttributes(attribute.Int("order.id", int(req.OrderId)))
+	span.SetAttributes(attribute.Int("order.id", int(req.GetOrderId())))
 
 	var orderModel models.Order
 	err := s.db.QueryRowContext(ctx,
 		"SELECT id, user_id, product_id, quantity, status, total_price FROM orders WHERE id = $1",
-		req.OrderId,
+		req.GetOrderId(),
 	).Scan(&orderModel.ID, &orderModel.UserID, &orderModel.ProductID, &orderModel.Quantity, &orderModel.Status, &orderModel.TotalPrice)
 
 	if err != nil {

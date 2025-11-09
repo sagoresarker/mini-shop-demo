@@ -42,17 +42,8 @@ jobs:
         with:
           version: v2.6.1
           install-mode: binary
-
-      - name: Run golangci-lint
-        working-directory: ./${{ matrix.service }}
-        continue-on-error: true
-        run: |
-          # Use config from root if it exists, otherwise use default
-          if [ -f ../.golangci.yml ]; then
-            golangci-lint run -c ../.golangci.yml ./...
-          else
-            golangci-lint run ./...
-          fi
+          working-directory: ./${{ matrix.service }}
+          args: --timeout=5m
 
   # Run unit tests for all services
   test:

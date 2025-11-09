@@ -66,10 +66,11 @@ func (cb *CircuitBreaker) Execute(ctx context.Context, fn func() error) error {
 	}
 
 	// Success - reset if in HalfOpen state
-	if cb.state == StateHalfOpen {
+	switch cb.state {
+	case StateHalfOpen:
 		cb.state = StateClosed
 		cb.failureCount = 0
-	} else if cb.state == StateClosed {
+	case StateClosed:
 		cb.failureCount = 0
 	}
 

@@ -56,8 +56,8 @@ func (pc *ProductClient) CheckAvailability(ctx context.Context, productID int32,
 		if err != nil {
 			return err
 		}
-		available = resp.Available
-		stock = resp.Stock
+		available = resp.GetAvailable()
+		stock = resp.GetStock()
 		return nil
 	})
 

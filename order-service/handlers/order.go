@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -24,7 +25,12 @@ type OrderHandler struct {
 	logger        *zap.Logger
 }
 
-func NewOrderHandler(db *sql.DB, producer sarama.SyncProducer, productClient *grpc.ProductClient, logger *zap.Logger) *OrderHandler {
+func NewOrderHandler(
+	db *sql.DB,
+	producer sarama.SyncProducer,
+	productClient *grpc.ProductClient,
+	logger *zap.Logger,
+) *OrderHandler {
 	return &OrderHandler{
 		db:            db,
 		producer:      producer,
@@ -76,13 +82,18 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		return
 	}
 
-	totalPrice := float64(req.Quantity) * float64(productResp.Price)
+	totalPrice := float64(req.Quantity) * float64(productResp.GetPrice())
 
 	// Create order in database
 	var order models.Order
-	err = h.db.QueryRowContext(ctx,
+	err = h.db.QueryRowContext(
+		ctx,
 		"INSERT INTO orders (user_id, product_id, quantity, status, total_price) VALUES ($1, $2, $3, $4, $5) RETURNING id, user_id, product_id, quantity, status, total_price, created_at, updated_at",
-		req.UserID, req.ProductID, req.Quantity, models.OrderStatusPending, totalPrice,
+		req.UserID,
+		req.ProductID,
+		req.Quantity,
+		models.OrderStatusPending,
+		totalPrice,
 	).Scan(&order.ID, &order.UserID, &order.ProductID, &order.Quantity, &order.Status, &order.TotalPrice, &order.CreatedAt, &order.UpdatedAt)
 
 	if err != nil {
@@ -164,13 +175,14 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 	span.SetAttributes(attribute.Int("order.id", orderID))
 
 	var order models.Order
-	err = h.db.QueryRowContext(ctx,
+	err = h.db.QueryRowContext(
+		ctx,
 		"SELECT id, user_id, product_id, quantity, status, total_price, created_at, updated_at FROM orders WHERE id = $1",
 		orderID,
 	).Scan(&order.ID, &order.UserID, &order.ProductID, &order.Quantity, &order.Status, &order.TotalPrice, &order.CreatedAt, &order.UpdatedAt)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 			return
 		}
