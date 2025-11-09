@@ -8,7 +8,7 @@ on:
 
 env:
   REGISTRY: docker.io
-  IMAGE_PREFIX: sagoresarkar/cuet-microservices-devops-workshop
+  IMAGE_PREFIX: sagoresarker/cuet-microservices-devops-workshop
 
 jobs:
   # Lint all Go services
@@ -100,6 +100,7 @@ jobs:
     permissions:
       contents: read
       packages: write
+      security-events: write
     strategy:
       matrix:
         service:
