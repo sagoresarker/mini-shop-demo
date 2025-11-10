@@ -1,6 +1,6 @@
-# CUET Microservices E-Commerce Platform
+# A Microservices E-Commerce Platform for Demonstration
 
-A production-ready, cloud-native microservices-based e-commerce system built with Go, demonstrating modern software engineering practices, distributed systems patterns, and comprehensive observability.
+A cloud-native microservices-based e-commerce system built with Go, demonstrating modern software engineering practices, distributed systems patterns, and comprehensive observability.
 
 ## 📋 Table of Contents
 
