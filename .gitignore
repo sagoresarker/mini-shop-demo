@@ -11,3 +11,8 @@ prometheus-data/
 grafana-data/
 loki-data/
 prometheus-data/
+user-service/coverage.out
+order-service/coverage.out
+product-service/coverage.out
+payment-service/coverage.out
+notification-service/coverage.out
