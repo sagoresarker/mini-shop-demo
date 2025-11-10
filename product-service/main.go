@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -18,6 +19,7 @@ import (
 	"net"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
@@ -47,11 +49,10 @@ func main() {
 	defer redisClient.Close()
 
 	// Initialize OpenTelemetry
-	shutdown, err := middleware.InitTracing("product-service")
+	shutdownTracing, err := middleware.InitTracing("product-service")
 	if err != nil {
 		logger.Fatal("Failed to initialize tracing", zap.Error(err))
 	}
-	defer shutdown()
 
 	// Setup Gin router
 	router := gin.New()
@@ -76,14 +77,14 @@ func main() {
 	router.DELETE("/products/:id", productHandler.DeleteProduct)
 
 	// Start server
-	srv := &http.Server{
+	restSrv := &http.Server{
 		Addr:    ":8081",
 		Handler: router,
 	}
 
 	// Graceful shutdown
 	go func() {
-		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		if err := restSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Fatal("Failed to start server", zap.Error(err))
 		}
 	}()
@@ -110,22 +111,53 @@ func main() {
 
 	logger.Info("Product Service gRPC server started on :50052")
 
-	// Wait for interrupt signal
+	// Call graceful shutdown function
+	gracefulShutdown(restSrv, grpcServer, db, redisClient, shutdownTracing, logger)
+}
+
+// gracefulShutdown handles SIGINT/SIGTERM and shuts down all services gracefully
+func gracefulShutdown(
+	restSrv *http.Server,
+	grpcServer *grpc.Server,
+	db *sql.DB,
+	redisClient *redis.Client,
+	shutdownTracing func(),
+	logger *zap.Logger,
+) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	logger.Info("Shutdown signal received. Exiting...")
 
-	logger.Info("Shutting down server...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
-	if err := srv.Shutdown(ctx); err != nil {
-		logger.Fatal("REST server forced to shutdown", zap.Error(err))
+	// Stop REST server
+	if err := restSrv.Shutdown(ctx); err != nil {
+		logger.Error("REST server forced to shutdown", zap.Error(err))
+	} else {
+		logger.Info("REST server stopped gracefully")
 	}
 
-	// Shutdown gRPC server
+	// Stop gRPC server
 	grpcServer.GracefulStop()
+	logger.Info("gRPC server stopped gracefully")
 
-	logger.Info("Servers exited")
+	// Close database
+	if err := db.Close(); err != nil {
+		logger.Error("Failed to close database", zap.Error(err))
+	} else {
+		logger.Info("Database connection closed gracefully")
+	}
+
+	// Close Redis cache
+	if err := redisClient.Close(); err != nil {
+		logger.Error("Failed to close Redis cache", zap.Error(err))
+	} else {
+		logger.Info("Redis cache closed gracefully")
+	}
+
+	// Shutdown tracing
+	shutdownTracing()
+	logger.Info("Product Service exited gracefully")
 }

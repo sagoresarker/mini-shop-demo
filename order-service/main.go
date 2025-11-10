@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"order-svc/middleware"
 	order "order-svc/proto"
 
+	"github.com/IBM/sarama"
 	"github.com/gin-gonic/gin"
 	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
@@ -53,10 +55,11 @@ func main() {
 	}
 	defer consumer.Close()
 
-	// Start Kafka consumer in background
+	// Kafka shutdown context
+	consumerCtx, consumerCancel := context.WithCancel(context.Background())
 	go func() {
-		if err := kafka.StartConsumer(consumer, db, logger); err != nil {
-			logger.Error("Kafka consumer error", zap.Error(err))
+		if err := kafka.StartConsumerWithContext(consumerCtx, consumer, db, logger); err != nil {
+			logger.Error("Kafka consumer stopped", zap.Error(err))
 		}
 	}()
 
@@ -127,23 +130,61 @@ func main() {
 
 	logger.Info("Order Service gRPC server started on :50051")
 
-	// Wait for interrupt signal
+	// Call graceful shutdown function
+	gracefulShutdown(restSrv, grpcServer, consumerCancel, consumer, producer, productClient, db, shutdown, logger)
+
+}
+
+func gracefulShutdown(restSrv *http.Server, grpcServer *grpcLib.Server, consumerCancel context.CancelFunc, consumer sarama.Consumer, producer sarama.SyncProducer, productClient *grpc.ProductClient, db *sql.DB, shutdownTracing func(), logger *zap.Logger) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	logger.Info("Shutdown signal received. Exiting...")
 
-	logger.Info("Shutting down servers...")
-
-	// Shutdown REST server
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Stop REST server
 	if err := restSrv.Shutdown(ctx); err != nil {
-		logger.Fatal("REST server forced to shutdown", zap.Error(err))
+		logger.Error("REST server forced to shutdown", zap.Error(err))
+	} else {
+		logger.Info("REST server stopped gracefully")
 	}
 
-	// Shutdown gRPC server
+	// Stop gRPC server
 	grpcServer.GracefulStop()
+	logger.Info("gRPC server stopped gracefully")
 
-	logger.Info("Servers exited")
+	// Stop Kafka consumer
+	consumerCancel() // signals the goroutine to exit
+	if err := consumer.Close(); err != nil {
+		logger.Error("Failed to close Kafka consumer", zap.Error(err))
+	} else {
+		logger.Info("Kafka consumer stopped gracefully")
+	}
+
+	// Close Kafka producer
+	if err := producer.Close(); err != nil {
+		logger.Error("Failed to close Kafka producer", zap.Error(err))
+	} else {
+		logger.Info("Kafka producer stopped gracefully")
+	}
+
+	// Close gRPC clients
+	if err := productClient.Close(); err != nil {
+		logger.Error("Failed to close Product gRPC client", zap.Error(err))
+	} else {
+		logger.Info("Product gRPC client closed gracefully")
+	}
+
+	// Close DB connection
+	if err := db.Close(); err != nil {
+		logger.Error("Failed to close database", zap.Error(err))
+	} else {
+		logger.Info("Database connection closed gracefully")
+	}
+
+	// Shutdown tracing
+	shutdownTracing()
+	logger.Info("Order Service exited gracefully")
 }

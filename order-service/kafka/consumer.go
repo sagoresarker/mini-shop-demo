@@ -31,18 +31,20 @@ func InitConsumer(logger *zap.Logger) (sarama.Consumer, error) {
 	return consumer, nil
 }
 
-func StartConsumer(consumer sarama.Consumer, db *sql.DB, logger *zap.Logger) error {
+func StartConsumerWithContext(ctx context.Context, consumer sarama.Consumer, db *sql.DB, logger *zap.Logger) error {
 	topic := getEnv("KAFKA_TOPIC", "order_events")
 	partitionConsumer, err := consumer.ConsumePartition(topic, 0, sarama.OffsetNewest)
 	if err != nil {
 		return fmt.Errorf("failed to consume partition: %w", err)
 	}
-	defer partitionConsumer.Close()
-
 	logger.Info("Kafka consumer started", zap.String("topic", topic))
 
+	// Listen for messages and errors, exit if context is cancelled
 	for {
 		select {
+		case <-ctx.Done():
+			logger.Info("Kafka consumer stopping due to context cancellation")
+			return partitionConsumer.Close()
 		case message := <-partitionConsumer.Messages():
 			if err := handleMessage(message, db, logger); err != nil {
 				logger.Error("Failed to handle message", zap.Error(err))

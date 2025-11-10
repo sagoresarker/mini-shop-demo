@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"net/http"
 	"os"
@@ -34,11 +35,12 @@ func main() {
 	defer db.Close()
 
 	// Initialize OpenTelemetry
-	shutdown, err := middleware.InitTracing("user-service")
+	shutdownTracing, err := middleware.InitTracing("user-service")
 	if err != nil {
 		logger.Fatal("Failed to initialize tracing", zap.Error(err))
 	}
-	defer shutdown()
+
+	defer shutdownTracing()
 
 	// Setup Gin router
 	router := gin.New()
@@ -81,19 +83,35 @@ func main() {
 
 	logger.Info("User Service started on :8080")
 
-	// Wait for interrupt signal
+	// Call graceful shutdown
+	gracefulShutdown(srv, db, shutdownTracing, logger)
+}
+
+// gracefulShutdown handles SIGINT/SIGTERM and shuts down all services gracefully
+func gracefulShutdown(srv *http.Server, db *sql.DB, shutdownTracing func(), logger *zap.Logger) {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
+	logger.Info("Shutdown signal received. Exiting...")
 
-	logger.Info("Shutting down server...")
-
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
+	// Shutdown HTTP server
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Fatal("Server forced to shutdown", zap.Error(err))
+		logger.Error("HTTP server forced to shutdown", zap.Error(err))
+	} else {
+		logger.Info("HTTP server stopped gracefully")
 	}
 
-	logger.Info("Server exited")
+	// Close database
+	if err := db.Close(); err != nil {
+		logger.Error("Failed to close database", zap.Error(err))
+	} else {
+		logger.Info("Database connection closed gracefully")
+	}
+
+	// Shutdown tracing
+	shutdownTracing()
+	logger.Info("User Service exited gracefully")
 }
