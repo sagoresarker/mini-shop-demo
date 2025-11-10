@@ -23,9 +23,9 @@ type Order struct {
 }
 
 type CreateOrderRequest struct {
-	UserID    int `json:"user_id"    binding:"required"`
+	UserID    int `json:"user_id" binding:"required"`
 	ProductID int `json:"product_id" binding:"required"`
-	Quantity  int `json:"quantity"   binding:"required,gt=0"`
+	Quantity  int `json:"quantity" binding:"required,gt=0"`
 }
 
 type OrderEvent struct {

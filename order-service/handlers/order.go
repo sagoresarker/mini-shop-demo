@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -126,46 +125,9 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		// Don't fail the request, but log the error
 	}
 
-	// Simulate payment processing (Saga pattern)
-	// In a real scenario, this would call a payment service
-	// For now, we'll simulate it and publish appropriate events
-	go h.processPayment(ctx, order)
-
 	traceID := middleware.GetTraceID(ctx)
 	h.logger.Info("Order created", zap.String("trace_id", traceID), zap.Int("order_id", order.ID))
 	c.JSON(http.StatusCreated, order)
-}
-
-func (h *OrderHandler) processPayment(ctx context.Context, order models.Order) {
-	// Simulate payment processing
-	// In a real scenario, this would call a payment service
-	// For demo purposes, we'll randomly fail some payments
-
-	event := models.OrderEvent{
-		OrderID:    order.ID,
-		UserID:     order.UserID,
-		ProductID:  order.ProductID,
-		Quantity:   order.Quantity,
-		Status:     order.Status,
-		TotalPrice: order.TotalPrice,
-	}
-
-	// Simulate: 80% success rate
-	// In production, this would be an actual payment service call
-	if order.ID%5 == 0 {
-		// Simulate payment failure
-		event.EventType = "payment_failed"
-		event.Status = models.OrderStatusFailed
-	} else {
-		// Simulate payment success
-		event.EventType = "order_paid"
-		event.Status = models.OrderStatusPaid
-	}
-
-	if err := kafka.PublishOrderEvent(ctx, h.producer, "order_events", event, h.logger); err != nil {
-		traceID := middleware.GetTraceID(ctx)
-		h.logger.Error("Failed to publish payment event", zap.String("trace_id", traceID), zap.Error(err))
-	}
 }
 
 func (h *OrderHandler) GetOrder(c *gin.Context) {

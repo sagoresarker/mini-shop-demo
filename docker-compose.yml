@@ -168,11 +168,11 @@ services:
     restart: on-failure
     networks:
       - cuet-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # healthcheck:
+    #   test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8080/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
 
   # Product Service
   product-service:
@@ -239,11 +239,11 @@ services:
     restart: on-failure
     networks:
       - cuet-network
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # healthcheck:
+    #   test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8082/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
 
   # Payment Service
   payment-service:
@@ -298,11 +298,11 @@ services:
     networks:
       - cuet-network
     restart: on-failure
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
+    # healthcheck:
+    #   test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
 
   # Prometheus
   prometheus:
