@@ -170,11 +170,6 @@ This project is a comprehensive microservices implementation showcasing:
 - **Protocol Buffers Compiler** (protoc) - for gRPC services
 - **Git** (for cloning the repository)
 
-### Optional Tools
-- **kubectl** (for Kubernetes deployment)
-- **Postman** or **curl** (for API testing)
-- **Make** (for running service-specific commands)
-
 ## 🚀 Quick Start
 
 ### 1. Clone the Repository
