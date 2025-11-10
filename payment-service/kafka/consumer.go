@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
-	"os"
 	"time"
 
 	"payment-svc/models"
@@ -14,6 +13,8 @@ import (
 	"github.com/IBM/sarama"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -55,8 +56,20 @@ func StartConsumer(consumer sarama.Consumer, db *sql.DB, producer sarama.SyncPro
 }
 
 func handleMessage(message *sarama.ConsumerMessage, db *sql.DB, producer sarama.SyncProducer, logger *zap.Logger) error {
-	ctx, span := otel.Tracer("payment-service").Start(context.Background(), "ProcessPayment")
+	// Extract trace context from Kafka message headers
+	var propagator propagation.TextMapPropagator = otel.GetTextMapPropagator()
+	carrier := saramaHeaderCarrierConsumer(message.Headers)
+	ctx := propagator.Extract(context.Background(), carrier)
+
+	var tracer trace.Tracer = otel.Tracer("payment-service")
+	ctx, span := tracer.Start(ctx, "ProcessPayment")
 	defer span.End()
+
+	// Extract trace ID for logging
+	traceID := ""
+	if span.SpanContext().IsValid() {
+		traceID = span.SpanContext().TraceID().String()
+	}
 
 	var orderEvent map[string]interface{}
 	if err := json.Unmarshal(message.Value, &orderEvent); err != nil {
@@ -95,6 +108,7 @@ func handleMessage(message *sarama.ConsumerMessage, db *sql.DB, producer sarama.
 	)
 
 	logger.Info("Processing payment for order",
+		zap.String("trace_id", traceID),
 		zap.Float64("order_id", orderID),
 		zap.Float64("user_id", userID),
 		zap.Float64("amount", totalPrice),
@@ -143,28 +157,45 @@ func handleMessage(message *sarama.ConsumerMessage, db *sql.DB, producer sarama.
 
 	if success {
 		paymentEvent.EventType = "payment_success"
-		logger.Info("Payment successful", zap.Int("payment_id", paymentID), zap.String("transaction_id", transactionID))
+		logger.Info("Payment successful", zap.String("trace_id", traceID), zap.Int("payment_id", paymentID), zap.String("transaction_id", transactionID))
 	} else {
 		paymentEvent.EventType = "payment_failed"
-		logger.Info("Payment failed", zap.Int("payment_id", paymentID))
+		logger.Info("Payment failed", zap.String("trace_id", traceID), zap.Int("payment_id", paymentID))
 	}
 
 	// Publish to Kafka
-	if err := PublishPaymentEvent(producer, "order_events", paymentEvent, logger); err != nil {
+	if err := PublishPaymentEvent(ctx, producer, "order_events", paymentEvent, logger); err != nil {
 		span.RecordError(err)
-		logger.Error("Failed to publish payment event", zap.Error(err))
+		logger.Error("Failed to publish payment event", zap.String("trace_id", traceID), zap.Error(err))
 		// Don't fail the whole process, but log the error
 	}
 
 	// Record metrics (would need to import middleware, but for now just log)
-	logger.Info("Payment processed", zap.String("status", string(status)))
+	logger.Info("Payment processed", zap.String("trace_id", traceID), zap.String("status", string(status)))
 
 	return nil
 }
 
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
+// saramaHeaderCarrierConsumer implements the TextMapCarrier interface for Kafka headers (for consumer)
+type saramaHeaderCarrierConsumer []*sarama.RecordHeader
+
+func (c saramaHeaderCarrierConsumer) Get(key string) string {
+	for _, h := range c {
+		if string(h.Key) == key {
+			return string(h.Value)
+		}
 	}
-	return defaultValue
+	return ""
+}
+
+func (c saramaHeaderCarrierConsumer) Set(key, value string) {
+	// Not needed for extraction
+}
+
+func (c saramaHeaderCarrierConsumer) Keys() []string {
+	keys := make([]string, len(c))
+	for i, h := range c {
+		keys[i] = string(h.Key)
+	}
+	return keys
 }

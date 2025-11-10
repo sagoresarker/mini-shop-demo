@@ -14,6 +14,15 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// GetTraceID extracts trace ID from context for logging
+func GetTraceID(ctx context.Context) string {
+	span := trace.SpanFromContext(ctx)
+	if span.SpanContext().IsValid() {
+		return span.SpanContext().TraceID().String()
+	}
+	return ""
+}
+
 func InitTracing(serviceName string) (func(), error) {
 	jaegerEndpoint := getEnv("JAEGER_ENDPOINT", "http://localhost:14268/api/traces")
 

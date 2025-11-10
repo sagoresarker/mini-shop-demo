@@ -12,6 +12,7 @@ import (
 	"github.com/IBM/sarama"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
@@ -76,8 +77,17 @@ func handleMessageWithRetry(message *sarama.ConsumerMessage, logger *zap.Logger,
 }
 
 func handleMessage(message *sarama.ConsumerMessage, logger *zap.Logger) error {
-	ctx, span := otel.Tracer("notification-service").Start(context.Background(), "ProcessNotification")
+	// Extract trace context from Kafka message headers
+	var propagator propagation.TextMapPropagator = otel.GetTextMapPropagator()
+	carrier := saramaHeaderCarrierConsumer(message.Headers)
+	ctx := propagator.Extract(context.Background(), carrier)
+
+	var tracer trace.Tracer = otel.Tracer("notification-service")
+	ctx, span := tracer.Start(ctx, "ProcessNotification")
 	defer span.End()
+
+	// traceID will be extracted in handler functions using middleware.GetTraceID
+	_ = span
 
 	var event map[string]interface{}
 	if err := json.Unmarshal(message.Value, &event); err != nil {
@@ -119,7 +129,9 @@ func handleOrderCreated(ctx context.Context, event map[string]interface{}, logge
 	)
 
 	message := fmt.Sprintf("Your order #%.0f has been placed successfully! We'll notify you once it's confirmed.", orderID)
+	traceID := middleware.GetTraceID(ctx)
 	logger.Info("Order notification sent",
+		zap.String("trace_id", traceID),
 		zap.Float64("order_id", orderID),
 		zap.Float64("user_id", userID),
 		zap.String("message", message),
@@ -144,7 +156,9 @@ func handlePaymentSuccess(ctx context.Context, event map[string]interface{}, log
 	)
 
 	message := fmt.Sprintf("Payment for order #%.0f was successful! Transaction ID: %s", orderID, transactionID)
+	traceID := middleware.GetTraceID(ctx)
 	logger.Info("Payment success notification sent",
+		zap.String("trace_id", traceID),
 		zap.Float64("order_id", orderID),
 		zap.Float64("user_id", userID),
 		zap.String("transaction_id", transactionID),
@@ -168,7 +182,9 @@ func handlePaymentFailed(ctx context.Context, event map[string]interface{}, logg
 	)
 
 	message := fmt.Sprintf("Payment for order #%.0f failed. Please try again or contact support.", orderID)
+	traceID := middleware.GetTraceID(ctx)
 	logger.Info("Payment failure notification sent",
+		zap.String("trace_id", traceID),
 		zap.Float64("order_id", orderID),
 		zap.Float64("user_id", userID),
 		zap.String("message", message),
@@ -178,6 +194,30 @@ func handlePaymentFailed(ctx context.Context, event map[string]interface{}, logg
 	fmt.Printf("[EMAIL] To: user_%.0f@example.com\n", userID)
 	fmt.Printf("[EMAIL] Subject: Payment Failed\n")
 	fmt.Printf("[EMAIL] Body: %s\n\n", message)
+}
+
+// saramaHeaderCarrierConsumer implements the TextMapCarrier interface for Kafka headers (for consumer)
+type saramaHeaderCarrierConsumer []*sarama.RecordHeader
+
+func (c saramaHeaderCarrierConsumer) Get(key string) string {
+	for _, h := range c {
+		if string(h.Key) == key {
+			return string(h.Value)
+		}
+	}
+	return ""
+}
+
+func (c saramaHeaderCarrierConsumer) Set(key, value string) {
+	// Not needed for extraction
+}
+
+func (c saramaHeaderCarrierConsumer) Keys() []string {
+	keys := make([]string, len(c))
+	for i, h := range c {
+		keys[i] = string(h.Key)
+	}
+	return keys
 }
 
 func getEnv(key, defaultValue string) string {

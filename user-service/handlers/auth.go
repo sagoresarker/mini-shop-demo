@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"time"
 
+	"user-svc/middleware"
 	"user-svc/models"
 
 	"github.com/gin-gonic/gin"
@@ -51,7 +52,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		c.JSON(http.StatusConflict, gin.H{"error": "User already exists"})
 		return
 	} else if err != sql.ErrNoRows {
-		h.logger.Error("Database error", zap.Error(err))
+		traceID := middleware.GetTraceID(c.Request.Context())
+		h.logger.Error("Database error", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
@@ -59,7 +61,8 @@ func (h *AuthHandler) Register(c *gin.Context) {
 	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		h.logger.Error("Failed to hash password", zap.Error(err))
+		traceID := middleware.GetTraceID(c.Request.Context())
+		h.logger.Error("Failed to hash password", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
@@ -71,12 +74,14 @@ func (h *AuthHandler) Register(c *gin.Context) {
 		name, req.Email, string(hashedPassword),
 	).Scan(&user.ID, &user.Name, &user.Email, &user.CreatedAt)
 	if err != nil {
-		h.logger.Error("Failed to create user", zap.Error(err))
+		traceID := middleware.GetTraceID(c.Request.Context())
+		h.logger.Error("Failed to create user", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	h.logger.Info("User registered", zap.String("email", req.Email))
+	traceID := middleware.GetTraceID(c.Request.Context())
+	h.logger.Info("User registered", zap.String("trace_id", traceID), zap.String("email", req.Email))
 	c.JSON(http.StatusCreated, user)
 }
 
@@ -98,7 +103,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 			return
 		}
-		h.logger.Error("Database error", zap.Error(err))
+		traceID := middleware.GetTraceID(c.Request.Context())
+		h.logger.Error("Database error", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
@@ -118,12 +124,14 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	tokenString, err := token.SignedString(jwtSecret)
 	if err != nil {
-		h.logger.Error("Failed to generate token", zap.Error(err))
+		traceID := middleware.GetTraceID(c.Request.Context())
+		h.logger.Error("Failed to generate token", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
-	h.logger.Info("User logged in", zap.String("email", req.Email))
+	traceID := middleware.GetTraceID(c.Request.Context())
+	h.logger.Info("User logged in", zap.String("trace_id", traceID), zap.String("email", req.Email))
 	c.JSON(http.StatusOK, models.LoginResponse{
 		Token: tokenString,
 		User:  user,

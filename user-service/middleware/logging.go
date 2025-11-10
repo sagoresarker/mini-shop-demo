@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/otel/trace"
 	"go.uber.org/zap"
 )
 
@@ -16,7 +17,16 @@ func LoggerMiddleware(logger *zap.Logger) gin.HandlerFunc {
 		c.Next()
 
 		latency := time.Since(start)
+
+		// Extract trace ID from context
+		span := trace.SpanFromContext(c.Request.Context())
+		traceID := ""
+		if span.SpanContext().IsValid() {
+			traceID = span.SpanContext().TraceID().String()
+		}
+
 		logger.Info("HTTP Request",
+			zap.String("trace_id", traceID),
 			zap.Int("status", c.Writer.Status()),
 			zap.String("method", c.Request.Method),
 			zap.String("path", path),

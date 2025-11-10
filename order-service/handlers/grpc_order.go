@@ -108,7 +108,8 @@ func (s *OrderService) CreateOrder(
 		EventType:  "order_created",
 	}
 
-	if err := kafka.PublishOrderEvent(s.producer, "order_events", event, s.logger); err != nil {
+	if err := kafka.PublishOrderEvent(ctx, s.producer, "order_events", event, s.logger); err != nil {
+		span.RecordError(err)
 		s.logger.Error("Failed to publish order_created event", zap.Error(err))
 		// Don't fail the request, but log the error
 	}

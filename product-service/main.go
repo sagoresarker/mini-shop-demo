@@ -18,6 +18,7 @@ import (
 	"net"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -55,6 +56,8 @@ func main() {
 	// Setup Gin router
 	router := gin.New()
 	router.Use(gin.Recovery())
+	// OpenTelemetry middleware must be first to extract trace context
+	router.Use(otelgin.Middleware("product-service"))
 	router.Use(middleware.LoggerMiddleware(logger))
 	router.Use(middleware.MetricsMiddleware())
 

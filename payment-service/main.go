@@ -13,6 +13,7 @@ import (
 	"payment-svc/middleware"
 
 	"github.com/gin-gonic/gin"
+	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
 	"go.uber.org/zap"
 )
 
@@ -62,6 +63,8 @@ func main() {
 	// Setup REST API with Gin
 	router := gin.New()
 	router.Use(gin.Recovery())
+	// OpenTelemetry middleware must be first to extract trace context
+	router.Use(otelgin.Middleware("payment-service"))
 	router.Use(middleware.LoggerMiddleware(logger))
 	router.Use(middleware.MetricsMiddleware())
 

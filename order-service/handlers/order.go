@@ -9,6 +9,7 @@ import (
 
 	"order-svc/grpc"
 	"order-svc/kafka"
+	"order-svc/middleware"
 	"order-svc/models"
 
 	"github.com/IBM/sarama"
@@ -58,8 +59,9 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	// Check product availability via gRPC
 	available, stock, err := h.productClient.CheckAvailability(ctx, int32(req.ProductID), int32(req.Quantity))
 	if err != nil {
+		traceID := middleware.GetTraceID(ctx)
 		span.RecordError(err)
-		h.logger.Error("Failed to check product availability", zap.Error(err))
+		h.logger.Error("Failed to check product availability", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Product service unavailable"})
 		return
 	}
@@ -76,8 +78,9 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	// Get product details to calculate total price
 	productResp, err := h.productClient.GetProduct(ctx, int32(req.ProductID))
 	if err != nil {
+		traceID := middleware.GetTraceID(ctx)
 		span.RecordError(err)
-		h.logger.Error("Failed to get product details", zap.Error(err))
+		h.logger.Error("Failed to get product details", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Product service unavailable"})
 		return
 	}
@@ -97,8 +100,9 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	).Scan(&order.ID, &order.UserID, &order.ProductID, &order.Quantity, &order.Status, &order.TotalPrice, &order.CreatedAt, &order.UpdatedAt)
 
 	if err != nil {
+		traceID := middleware.GetTraceID(ctx)
 		span.RecordError(err)
-		h.logger.Error("Failed to create order", zap.Error(err))
+		h.logger.Error("Failed to create order", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
@@ -116,8 +120,9 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 		EventType:  "order_created",
 	}
 
-	if err := kafka.PublishOrderEvent(h.producer, "order_events", event, h.logger); err != nil {
-		h.logger.Error("Failed to publish order_created event", zap.Error(err))
+	if err := kafka.PublishOrderEvent(ctx, h.producer, "order_events", event, h.logger); err != nil {
+		traceID := middleware.GetTraceID(ctx)
+		h.logger.Error("Failed to publish order_created event", zap.String("trace_id", traceID), zap.Error(err))
 		// Don't fail the request, but log the error
 	}
 
@@ -126,7 +131,8 @@ func (h *OrderHandler) CreateOrder(c *gin.Context) {
 	// For now, we'll simulate it and publish appropriate events
 	go h.processPayment(ctx, order)
 
-	h.logger.Info("Order created", zap.Int("order_id", order.ID))
+	traceID := middleware.GetTraceID(ctx)
+	h.logger.Info("Order created", zap.String("trace_id", traceID), zap.Int("order_id", order.ID))
 	c.JSON(http.StatusCreated, order)
 }
 
@@ -156,8 +162,9 @@ func (h *OrderHandler) processPayment(ctx context.Context, order models.Order) {
 		event.Status = models.OrderStatusPaid
 	}
 
-	if err := kafka.PublishOrderEvent(h.producer, "order_events", event, h.logger); err != nil {
-		h.logger.Error("Failed to publish payment event", zap.Error(err))
+	if err := kafka.PublishOrderEvent(ctx, h.producer, "order_events", event, h.logger); err != nil {
+		traceID := middleware.GetTraceID(ctx)
+		h.logger.Error("Failed to publish payment event", zap.String("trace_id", traceID), zap.Error(err))
 	}
 }
 
@@ -186,11 +193,14 @@ func (h *OrderHandler) GetOrder(c *gin.Context) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Order not found"})
 			return
 		}
+		traceID := middleware.GetTraceID(ctx)
 		span.RecordError(err)
-		h.logger.Error("Failed to get order", zap.Error(err))
+		h.logger.Error("Failed to get order", zap.String("trace_id", traceID), zap.Error(err))
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Internal server error"})
 		return
 	}
 
+	traceID := middleware.GetTraceID(ctx)
+	h.logger.Info("Order retrieved", zap.String("trace_id", traceID), zap.Int("order_id", order.ID))
 	c.JSON(http.StatusOK, order)
 }
