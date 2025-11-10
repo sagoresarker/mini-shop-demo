@@ -37,6 +37,10 @@ jobs:
         working-directory: ./${{ matrix.service }}
         run: go mod download
 
+      - name: Tidy dependencies
+        working-directory: ./${{ matrix.service }}
+        run: go mod tidy
+
       - name: Run golangci-lint
         uses: golangci/golangci-lint-action@v6
         with:
@@ -78,6 +82,10 @@ jobs:
       - name: Download dependencies
         working-directory: ./${{ matrix.service }}
         run: go mod download
+
+      - name: Tidy dependencies
+        working-directory: ./${{ matrix.service }}
+        run: go mod tidy
 
       - name: Run tests
         working-directory: ./${{ matrix.service }}
