@@ -93,8 +93,8 @@ func main() {
 
 	// Order endpoints
 	orderHandler := handlers.NewOrderHandler(db, producer, productClient, logger)
-	router.POST("/orders", orderHandler.CreateOrder)
-	router.GET("/orders/:id", orderHandler.GetOrder)
+	router.POST("/api/v1/orders", orderHandler.CreateOrder)
+	router.GET("/api/v1/orders/:id", orderHandler.GetOrder)
 
 	// Start REST server
 	restSrv := &http.Server{

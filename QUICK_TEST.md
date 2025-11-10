@@ -21,8 +21,8 @@ curl http://localhost:8084/health  # Notification Service
 curl -X POST http://localhost:8080/register \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "testuser1",
-    "email": "test@example1.com",
+    "username": "testuser5",
+    "email": "test@example5.com",
     "password": "password123"
   }'
 ```
@@ -84,8 +84,8 @@ curl http://localhost:8081/products/1
 curl -X POST http://localhost:8082/orders \
   -H "Content-Type: application/json" \
   -d '{
-    "user_id": 1,
-    "product_id": 3,
+    "user_id": 2,
+    "product_id": 2,
     "quantity": 2
   }'
 ```

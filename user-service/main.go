@@ -58,11 +58,11 @@ func main() {
 
 	// Auth endpoints
 	authHandler := handlers.NewAuthHandler(db, logger)
-	router.POST("/register", authHandler.Register)
-	router.POST("/login", authHandler.Login)
+	router.POST("/api/v1/register", authHandler.Register)
+	router.POST("/api/v1/login", authHandler.Login)
 
 	// Protected endpoints
-	protected := router.Group("/")
+	protected := router.Group("/api/v1")
 	protected.Use(middleware.AuthMiddleware())
 	{
 		protected.GET("/profile", handlers.GetProfile)

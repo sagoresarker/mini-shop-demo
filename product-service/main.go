@@ -70,11 +70,11 @@ func main() {
 
 	// Product endpoints
 	productHandler := handlers.NewProductHandler(db, redisClient, logger)
-	router.GET("/products", productHandler.GetProducts)
-	router.GET("/products/:id", productHandler.GetProduct)
-	router.POST("/products", productHandler.CreateProduct)
-	router.PUT("/products/:id", productHandler.UpdateProduct)
-	router.DELETE("/products/:id", productHandler.DeleteProduct)
+	router.GET("/api/v1/products", productHandler.GetProducts)
+	router.GET("/api/v1/products/:id", productHandler.GetProduct)
+	router.POST("/api/v1/products", productHandler.CreateProduct)
+	router.PUT("/api/v1/products/:id", productHandler.UpdateProduct)
+	router.DELETE("/api/v1/products/:id", productHandler.DeleteProduct)
 
 	// Start server
 	restSrv := &http.Server{
