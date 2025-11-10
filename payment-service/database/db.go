@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 
 	_ "github.com/lib/pq"
 	"go.uber.org/zap"
@@ -23,6 +24,12 @@ func InitDB(logger *zap.Logger) (*sql.DB, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
+
+	// Configure connection pool
+	db.SetMaxOpenConns(25)                 // max number of open connections
+	db.SetMaxIdleConns(10)                 // max number of idle connections
+	db.SetConnMaxLifetime(5 * time.Minute) // how long a connection can be reused
+	db.SetConnMaxIdleTime(1 * time.Minute) // how long an idle connection stays in pool
 
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
