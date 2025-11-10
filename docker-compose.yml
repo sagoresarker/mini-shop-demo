@@ -165,6 +165,7 @@ services:
       JAEGER_ENDPOINT: http://jaeger:14268/api/traces
     ports:
       - "8080:8080"
+    restart: on-failure
     networks:
       - cuet-network
     healthcheck:
@@ -198,6 +199,7 @@ services:
     ports:
       - "8081:8081"
       - "50052:50052"
+    restart: on-failure
     networks:
       - cuet-network
     healthcheck:
@@ -234,6 +236,7 @@ services:
     ports:
       - "8082:8082"
       - "50051:50051"
+    restart: on-failure
     networks:
       - cuet-network
     healthcheck:
@@ -266,6 +269,7 @@ services:
       JAEGER_ENDPOINT: http://jaeger:14268/api/traces
     ports:
       - "8083:8083"
+    restart: on-failure
     networks:
       - cuet-network
     healthcheck:
@@ -293,6 +297,7 @@ services:
       - "8084:8084"
     networks:
       - cuet-network
+    restart: on-failure
     healthcheck:
       test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8084/health"]
       interval: 30s
