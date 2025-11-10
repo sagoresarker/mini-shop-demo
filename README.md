@@ -37,9 +37,9 @@ This project is a comprehensive microservices implementation showcasing:
 ## 🏗️ Architecture
 
 ### System Architecture Diagram
-```
-todo
-```
+
+![Architecutre](image/architecture-diagram.png)
+
 ### Communication Patterns
 
 1. **Synchronous Communication**
