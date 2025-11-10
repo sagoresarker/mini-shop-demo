@@ -1,11 +1,15 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
+	"time"
 
 	"payment-svc/database"
 	"payment-svc/handlers"
@@ -40,11 +44,11 @@ func main() {
 	defer producer.Close()
 
 	// Initialize Kafka consumer
-	consumer, err := kafka.InitConsumer(logger)
+	consumerGroup, err := kafka.InitConsumer(logger)
 	if err != nil {
 		logger.Fatal("Failed to initialize Kafka consumer", zap.Error(err))
 	}
-	defer consumer.Close()
+	defer consumerGroup.Close()
 
 	// Initialize OpenTelemetry
 	shutdown, err := middleware.InitTracing("payment-service")
@@ -54,8 +58,14 @@ func main() {
 	defer shutdown()
 
 	// Start Kafka consumer in background
+	consumerCtx, consumerCancel := context.WithCancel(context.Background())
+	defer consumerCancel()
+
+	var consumerWG sync.WaitGroup
+	consumerWG.Add(1)
 	go func() {
-		if err := kafka.StartConsumer(consumer, db, producer, logger); err != nil {
+		defer consumerWG.Done()
+		if err := kafka.StartConsumer(consumerCtx, consumerGroup, db, producer, logger); err != nil && !errors.Is(err, context.Canceled) {
 			logger.Error("Kafka consumer error", zap.Error(err))
 		}
 	}()
@@ -94,5 +104,15 @@ func main() {
 	<-quit
 
 	logger.Info("Shutting down server...")
+
+	consumerCancel()
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer shutdownCancel()
+
+	if err := srv.Shutdown(shutdownCtx); err != nil {
+		logger.Warn("Failed to shutdown REST server gracefully", zap.Error(err))
+	}
+
+	consumerWG.Wait()
 	logger.Info("Server exited")
 }
